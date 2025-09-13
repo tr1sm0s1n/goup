@@ -1,0 +1,13 @@
+version: 2
+builds:
+  - goos:
+      - linux
+      - darwin
+    ignore:
+      - goos: darwin
+        goarch: '386'
+    env:
+      - CGO_ENABLED=0
+archives:
+  - id: tar.gz
+    formats: ['tar.gz']
