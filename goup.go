@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -39,7 +40,7 @@ type Release struct {
 	} `json:"files"`
 }
 
-type Goup struct {
+type goup struct {
 	currentVersion  string
 	latestVersion   string
 	architecture    string
@@ -64,7 +65,7 @@ func printError(msg string) {
 	fmt.Printf("%s[FAIL]%s %s\n", colorRed, colorReset, msg)
 }
 
-func (g *Goup) run() error {
+func (g *goup) run() error {
 	// Get current version
 	current, err := g.getCurrentVersion()
 	if err != nil {
@@ -127,7 +128,7 @@ func (g *Goup) run() error {
 	return nil
 }
 
-func (g *Goup) getCurrentVersion() (string, error) {
+func (g *goup) getCurrentVersion() (string, error) {
 	// Get common Go installation paths for Unix systems
 	goPaths := g.getCommonGoPaths()
 
@@ -155,7 +156,7 @@ func (g *Goup) getCurrentVersion() (string, error) {
 	return "", fmt.Errorf("go not found in common locations, last error: %v", lastErr)
 }
 
-func (g *Goup) getLatestVersion() (string, error) {
+func (g *goup) getLatestVersion() (string, error) {
 	resp, err := http.Get(goDownloadAPI)
 	if err != nil {
 		return "", err
@@ -186,7 +187,7 @@ func (g *Goup) getLatestVersion() (string, error) {
 	return "", fmt.Errorf("no stable release found for %s/%s", g.operatingSystem, g.architecture)
 }
 
-func (g *Goup) needsUpdate() (bool, error) {
+func (g *goup) needsUpdate() (bool, error) {
 	if g.currentVersion == "none" {
 		return true, nil
 	}
@@ -197,7 +198,7 @@ func (g *Goup) needsUpdate() (bool, error) {
 	return compareVersions(current, latest) < 0, nil
 }
 
-func (g *Goup) backupCurrentInstallation() error {
+func (g *goup) backupCurrentInstallation() error {
 	goDir := filepath.Join(g.installDir, "go")
 	if _, err := os.Stat(goDir); os.IsNotExist(err) {
 		return nil // Nothing to backup
@@ -215,7 +216,7 @@ func (g *Goup) backupCurrentInstallation() error {
 	return nil
 }
 
-func (g *Goup) downloadAndInstall() error {
+func (g *goup) downloadAndInstall() error {
 	filename := fmt.Sprintf("go%s.%s-%s.tar.gz", g.latestVersion, g.operatingSystem, g.architecture)
 	downloadURL := fmt.Sprintf("%s%s", goDownloadURL, filename)
 	tempFile := filepath.Join(os.TempDir(), filename)
@@ -241,7 +242,7 @@ func (g *Goup) downloadAndInstall() error {
 	return nil
 }
 
-func (g *Goup) downloadFile(url, filepath string) error {
+func (g *goup) downloadFile(url, filepath string) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -262,7 +263,7 @@ func (g *Goup) downloadFile(url, filepath string) error {
 	return err
 }
 
-func (g *Goup) extractTarGz(src, dest string) error {
+func (g *goup) extractTarGz(src, dest string) error {
 	file, err := os.Open(src)
 	if err != nil {
 		return err
@@ -324,7 +325,7 @@ func (g *Goup) extractTarGz(src, dest string) error {
 	return nil
 }
 
-func (g *Goup) updatePath() error {
+func (g *goup) updatePath() error {
 	goBinPath := filepath.Join(g.installDir, "go", "bin")
 
 	for _, profilePath := range g.profileFiles {
@@ -339,7 +340,7 @@ func (g *Goup) updatePath() error {
 	return fmt.Errorf("failed to update any profile files")
 }
 
-func (g *Goup) addToProfile(profilePath, goBinPath string) error {
+func (g *goup) addToProfile(profilePath, goBinPath string) error {
 	// Check if file exists and is writable
 	if _, err := os.Stat(profilePath); os.IsNotExist(err) {
 		// Try to create the file
@@ -369,7 +370,7 @@ func (g *Goup) addToProfile(profilePath, goBinPath string) error {
 	return err
 }
 
-func (g *Goup) verifyInstallation() error {
+func (g *goup) verifyInstallation() error {
 	goBinPath := filepath.Join(g.installDir, "go", "bin", "go")
 
 	cmd := exec.Command(goBinPath, "version")
@@ -391,7 +392,7 @@ func (g *Goup) verifyInstallation() error {
 	return fmt.Errorf("unexpected go version output: %s", string(output))
 }
 
-func (g *Goup) setOSDefaults() {
+func (g *goup) setOSDefaults() {
 	switch g.operatingSystem {
 	case "linux":
 		g.installDir = "/usr/local"
@@ -422,7 +423,7 @@ func (g *Goup) setOSDefaults() {
 	}
 }
 
-func (g *Goup) getCommonGoPaths() []string {
+func (g *goup) getCommonGoPaths() []string {
 	paths := []string{
 		"go", // Try PATH first
 	}
@@ -464,7 +465,7 @@ func (g *Goup) getCommonGoPaths() []string {
 	return paths
 }
 
-func (g *Goup) setPermissions(path string) error {
+func (g *goup) setPermissions(path string) error {
 	return filepath.Walk(path, func(file string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -482,7 +483,7 @@ func (g *Goup) setPermissions(path string) error {
 	})
 }
 
-func (g *Goup) printPostInstallInstructions() {
+func (g *goup) printPostInstallInstructions() {
 	printInfo("Installation complete!")
 
 	switch g.operatingSystem {
@@ -543,8 +544,20 @@ func compareVersions(v1, v2 []int) int {
 	return 0
 }
 
+var version = "v0.1.0-alpha.1"
+
+func init() {
+	showVersion := flag.Bool("v", false, "Show version and exit")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("goup %s\n", version)
+		os.Exit(0)
+	}
+}
+
 func main() {
-	updater := &Goup{
+	updater := &goup{
 		architecture:    runtime.GOARCH,
 		operatingSystem: runtime.GOOS,
 	}
@@ -552,7 +565,7 @@ func main() {
 	// Set OS-specific defaults
 	updater.setOSDefaults()
 
-	printInfo("Goup - Go Version Updater")
+	printInfo("goup - Go Version Updater")
 	printInfo("-------------------------")
 
 	if !isRoot() {
