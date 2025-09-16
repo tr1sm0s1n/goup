@@ -90,25 +90,26 @@ func (g *goup) run() error {
 	g.latestVersion = latest
 	printInfo(fmt.Sprintf("Latest Go version: %s", latest))
 
-	// Compare versions
-	needsUpdate, err := g.needsUpdate()
-	if err != nil {
-		return fmt.Errorf("failed to compare versions: %w", err)
+	if g.installVersion == "" {
+		g.installVersion = latest
+	} else if !g.validVersion() {
+		return fmt.Errorf("invalid version: %s", g.installVersion)
 	}
 
-	if !needsUpdate {
+	// Compare versions
+	if !g.needsUpdate() {
 		printSuccess(fmt.Sprintf("Go is already up to date (version %s)", current))
 		return nil
 	}
 
 	// Perform update
 	if current != "none" {
-		printInfo(fmt.Sprintf("Updating Go from %s to %s...", current, latest))
+		printInfo(fmt.Sprintf("Updating Go from %s to %s...", current, g.installVersion))
 		if err := g.backupCurrentInstallation(); err != nil {
 			printWarning(fmt.Sprintf("Failed to backup current installation: %v", err))
 		}
 	} else {
-		printInfo(fmt.Sprintf("Installing Go %s...", latest))
+		printInfo(fmt.Sprintf("Installing Go %s...", g.installVersion))
 	}
 
 	if err := g.downloadAndInstall(); err != nil {
@@ -123,7 +124,7 @@ func (g *goup) run() error {
 		return fmt.Errorf("installation verification failed: %w", err)
 	}
 
-	printSuccess(fmt.Sprintf("Go has been successfully updated to version %s", latest))
+	printSuccess(fmt.Sprintf("Go has been successfully updated to version %s", g.installVersion))
 	g.printPostInstallInstructions()
 
 	return nil
@@ -188,15 +189,25 @@ func (g *goup) getLatestVersion() (string, error) {
 	return "", fmt.Errorf("no stable release found for %s/%s", g.operatingSystem, g.architecture)
 }
 
-func (g *goup) needsUpdate() (bool, error) {
+func (g *goup) needsUpdate() bool {
 	if g.currentVersion == "none" {
-		return true, nil
+		return true
 	}
 
 	current := parseVersion(g.currentVersion)
+	install := parseVersion(g.installVersion)
+
+	return compareVersions(current, install) < 0
+}
+
+func (g *goup) validVersion() bool {
+	install := parseVersion(g.installVersion)
+	if len(install) != 2 || len(install) != 3 {
+		return false
+	}
 	latest := parseVersion(g.latestVersion)
 
-	return compareVersions(current, latest) < 0, nil
+	return compareVersions(install, latest) <= 0
 }
 
 func (g *goup) backupCurrentInstallation() error {
@@ -218,17 +229,17 @@ func (g *goup) backupCurrentInstallation() error {
 }
 
 func (g *goup) downloadAndInstall() error {
-	filename := fmt.Sprintf("go%s.%s-%s.tar.gz", g.latestVersion, g.operatingSystem, g.architecture)
+	filename := fmt.Sprintf("go%s.%s-%s.tar.gz", g.installVersion, g.operatingSystem, g.architecture)
 	downloadURL := fmt.Sprintf("%s%s", goDownloadURL, filename)
 	tempFile := filepath.Join(os.TempDir(), filename)
 
-	printInfo(fmt.Sprintf("Downloading Go %s for %s/%s...", g.latestVersion, g.operatingSystem, g.architecture))
+	printInfo(fmt.Sprintf("Downloading Go %s for %s/%s...", g.installVersion, g.operatingSystem, g.architecture))
 	if err := g.downloadFile(downloadURL, tempFile); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	defer os.Remove(tempFile)
 
-	printInfo(fmt.Sprintf("Installing Go %s...", g.latestVersion))
+	printInfo(fmt.Sprintf("Installing Go %s...", g.installVersion))
 	if err := g.extractTarGz(tempFile, g.installDir); err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
@@ -239,7 +250,7 @@ func (g *goup) downloadAndInstall() error {
 		printWarning(fmt.Sprintf("Failed to set permissions: %v", err))
 	}
 
-	printSuccess(fmt.Sprintf("Go %s installed successfully!", g.latestVersion))
+	printSuccess(fmt.Sprintf("Go %s installed successfully!", g.installVersion))
 	return nil
 }
 
@@ -383,11 +394,11 @@ func (g *goup) verifyInstallation() error {
 	parts := strings.Fields(string(output))
 	if len(parts) >= 3 && strings.HasPrefix(parts[2], "go") {
 		installedVersion := strings.TrimPrefix(parts[2], "go")
-		if installedVersion == g.latestVersion {
+		if installedVersion == g.installVersion {
 			printSuccess(fmt.Sprintf("Installation verified: Go %s", installedVersion))
 			return nil
 		}
-		return fmt.Errorf("version mismatch: expected %s, got %s", g.latestVersion, installedVersion)
+		return fmt.Errorf("version mismatch: expected %s, got %s", g.installVersion, installedVersion)
 	}
 
 	return fmt.Errorf("unexpected go version output: %s", string(output))
@@ -555,7 +566,7 @@ func main() {
 	if *goupVersion {
 		fmt.Printf("goup %s\n", version)
 		os.Exit(0)
-}
+	}
 
 	updater := &goup{
 		architecture:    runtime.GOARCH,
