@@ -42,6 +42,7 @@ type Release struct {
 
 type goup struct {
 	currentVersion  string
+	installVersion  string
 	latestVersion   string
 	architecture    string
 	operatingSystem string
@@ -546,20 +547,20 @@ func compareVersions(v1, v2 []int) int {
 
 var version = "v0.1.0-alpha.1"
 
-func init() {
-	showVersion := flag.Bool("v", false, "Show version and exit")
+func main() {
+	specVersion := flag.String("i", "", "Update to a specific version (SemVer: MAJOR.MINOR[.PATCH])")
+	goupVersion := flag.Bool("v", false, "Show goup version")
 	flag.Parse()
 
-	if *showVersion {
+	if *goupVersion {
 		fmt.Printf("goup %s\n", version)
 		os.Exit(0)
-	}
 }
 
-func main() {
 	updater := &goup{
 		architecture:    runtime.GOARCH,
 		operatingSystem: runtime.GOOS,
+		installVersion:  *specVersion,
 	}
 
 	// Set OS-specific defaults
