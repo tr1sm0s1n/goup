@@ -48,6 +48,7 @@ type goup struct {
 	operatingSystem string
 	installDir      string
 	profileFiles    []string
+	goPaths         []string
 }
 
 func printInfo(msg string) {
@@ -132,10 +133,10 @@ func (g *goup) run() error {
 
 func (g *goup) getCurrentVersion() (string, error) {
 	// Get common Go installation paths for Unix systems
-	goPaths := g.getCommonGoPaths()
+	g.getCommonGoPaths()
 
 	var lastErr error
-	for _, goPath := range goPaths {
+	for _, goPath := range g.goPaths {
 		cmd := exec.Command(goPath, "version")
 		output, err := cmd.Output()
 		if err != nil {
@@ -435,10 +436,8 @@ func (g *goup) setOSDefaults() {
 	}
 }
 
-func (g *goup) getCommonGoPaths() []string {
-	paths := []string{
-		"go", // Try PATH first
-	}
+func (g *goup) getCommonGoPaths() {
+	g.goPaths = append(g.goPaths, "go") // Try PATH first
 
 	// Standard system locations
 	systemPaths := []string{
@@ -464,17 +463,15 @@ func (g *goup) getCommonGoPaths() []string {
 			)
 		}
 
-		paths = append(paths, userPaths...)
+		g.goPaths = append(g.goPaths, userPaths...)
 	}
 
-	paths = append(paths, systemPaths...)
+	g.goPaths = append(g.goPaths, systemPaths...)
 
 	// Check GOROOT if set
 	if goroot := os.Getenv("GOROOT"); goroot != "" {
-		paths = append(paths, filepath.Join(goroot, "bin", "go"))
+		g.goPaths = append(g.goPaths, filepath.Join(goroot, "bin", "go"))
 	}
-
-	return paths
 }
 
 func (g *goup) setPermissions(path string) error {
