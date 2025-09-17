@@ -132,9 +132,6 @@ func (g *goup) run() error {
 }
 
 func (g *goup) getCurrentVersion() (string, error) {
-	// Get common Go installation paths for Unix systems
-	g.getCommonGoPaths()
-
 	var lastErr error
 	for _, goPath := range g.goPaths {
 		cmd := exec.Command(goPath, "version")
@@ -434,6 +431,9 @@ func (g *goup) setOSDefaults() {
 			"/etc/profile",
 		}
 	}
+
+	// Get common Go installation paths for Unix systems
+	g.getCommonGoPaths()
 }
 
 func (g *goup) getCommonGoPaths() {
