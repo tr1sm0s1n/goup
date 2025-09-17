@@ -19,7 +19,7 @@ import (
 
 const (
 	goDownloadURL = "https://go.dev/dl/"
-	goDownloadAPI = "https://go.dev/dl/?mode=json"
+	goDownloadAPI = "https://go.dev/dl/?mode=json&include=all"
 	colorRed      = "\033[0;31m"
 	colorGreen    = "\033[0;32m"
 	colorYellow   = "\033[1;33m"
@@ -200,7 +200,7 @@ func (g *goup) needsUpdate() bool {
 
 func (g *goup) validVersion() bool {
 	install := parseVersion(g.installVersion)
-	if len(install) != 2 || len(install) != 3 {
+	if len(install) != 3 {
 		return false
 	}
 	latest := parseVersion(g.latestVersion)
