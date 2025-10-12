@@ -13,11 +13,24 @@ A fast, hassle-free Go version updater.
 Prebuilt binaries:
 
 ```sh
-curl -sSfL https://raw.githubusercontent.com/tr1sm0s1n/goup/main/install.sh | sh -s
+curl -sSfL https://raw.githubusercontent.com/tr1sm0s1n/goup/main/install.sh | sh -s -- -b .
 ```
 
 Using Go:
 
 ```sh
 go install github.com/tr1sm0s1n/goup@latest
+```
+
+## Usage
+
+```sh
+# latest version
+goup
+
+# specific version
+goup -i 1.24.7
+
+# goup version
+goup -v
 ```
