@@ -1,0 +1,27 @@
+version: '2'
+run:
+  tests: true
+linters:
+  default: none
+  enable:
+    - bidichk
+    - copyloopvar
+    - durationcheck
+    - gocheckcompilerdirectives
+    - govet
+    - ineffassign
+    - mirror
+    - misspell
+    - reassign
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+    - usetesting
+    - whitespace
+formatters:
+  enable:
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
