@@ -553,7 +553,7 @@ func compareVersions(v1, v2 []int) int {
 	return 0
 }
 
-var version = "v0.1.0-alpha.1"
+var version = "v0.1.0-beta.1"
 
 func main() {
 	specVersion := flag.String("i", "", "Update to a specific version (SemVer: MAJOR.MINOR[.PATCH])")
