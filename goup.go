@@ -1,3 +1,4 @@
+// Goup
 package main
 
 import (
@@ -354,11 +355,11 @@ func (g *goup) addToProfile(profilePath, goBinPath string) error {
 	// Check if file exists and is writable
 	if _, err := os.Stat(profilePath); os.IsNotExist(err) {
 		// Try to create the file
-		if file, err := os.Create(profilePath); err != nil {
+		file, err := os.Create(profilePath)
+		if err != nil {
 			return err
-		} else {
-			file.Close()
 		}
+		file.Close()
 	}
 
 	// Check if already in profile
@@ -482,13 +483,12 @@ func (g *goup) setPermissions(path string) error {
 
 		if info.IsDir() {
 			return os.Chmod(file, 0755)
-		} else {
-			// Executable files in bin directory and pkg/tool directory
-			if strings.Contains(file, "/bin/") || strings.Contains(file, "/pkg/tool/") {
-				return os.Chmod(file, 0755)
-			}
-			return os.Chmod(file, 0644)
 		}
+		// Executable files in bin directory and pkg/tool directory
+		if strings.Contains(file, "/bin/") || strings.Contains(file, "/pkg/tool/") {
+			return os.Chmod(file, 0755)
+		}
+		return os.Chmod(file, 0644)
 	})
 }
 
