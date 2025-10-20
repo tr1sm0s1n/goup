@@ -342,8 +342,11 @@ func (g *goup) extractTarGz(src, dest string) error {
 }
 
 func (g *goup) updatePath() error {
-	goBinPath := filepath.Join(g.installDir, "go", "bin")
+	if g.currentVersion != "none" {
+		return nil
+	}
 
+	goBinPath := filepath.Join(g.installDir, "go", "bin")
 	for _, profilePath := range g.profileFiles {
 		if err := g.addToProfile(profilePath, goBinPath); err != nil {
 			printWarning(fmt.Sprintf("Failed to update %s: %v", profilePath, err))
@@ -499,6 +502,9 @@ func (g *goup) setPermissions(path string) error {
 
 func (g *goup) printPostInstallInstructions() {
 	printInfo("Installation complete!")
+	if g.currentVersion != "none" {
+		return
+	}
 
 	switch g.operatingSystem {
 	case "darwin":
