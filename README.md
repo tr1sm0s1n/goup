@@ -25,7 +25,7 @@ go install github.com/tr1sm0s1n/goup@latest
 ## Usage
 
 ```sh
-# latest version
+# latest version, use '-b' to take backup of the existing version if any
 goup
 
 # specific version
