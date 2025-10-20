@@ -48,6 +48,7 @@ type goup struct {
 	architecture    string
 	operatingSystem string
 	installDir      string
+	takeBackup      bool
 	profileFiles    []string
 	goPaths         []string
 }
@@ -210,6 +211,10 @@ func (g *goup) validVersion() bool {
 }
 
 func (g *goup) backupCurrentInstallation() error {
+	if !g.takeBackup {
+		return nil
+	}
+
 	goDir := filepath.Join(g.installDir, "go")
 	if _, err := os.Stat(goDir); os.IsNotExist(err) {
 		return nil // Nothing to backup
@@ -557,6 +562,7 @@ var version = "v0.1.0-beta.1"
 
 func main() {
 	specVersion := flag.String("i", "", "Update to a specific version (SemVer: MAJOR.MINOR[.PATCH])")
+	backupExist := flag.Bool("b", false, "Back up existing version if any")
 	goupVersion := flag.Bool("v", false, "Show goup version")
 	flag.Parse()
 
@@ -569,6 +575,7 @@ func main() {
 		architecture:    runtime.GOARCH,
 		operatingSystem: runtime.GOOS,
 		installVersion:  *specVersion,
+		takeBackup:      *backupExist,
 	}
 
 	// Set OS-specific defaults
