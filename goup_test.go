@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 var (
@@ -36,6 +39,7 @@ func (g *goup) testOSDefaults() {
 
 func TestInvalidInstall(t *testing.T) {
 	updater := &goup{
+		ctx:             context.Background(),
 		architecture:    runtime.GOARCH,
 		operatingSystem: runtime.GOOS,
 		installVersion:  "xyz",
@@ -51,6 +55,7 @@ func TestInvalidInstall(t *testing.T) {
 
 func TestSpecificInstall(t *testing.T) {
 	updater := &goup{
+		ctx:             context.Background(),
 		architecture:    runtime.GOARCH,
 		operatingSystem: runtime.GOOS,
 		installVersion:  "1.24.0",
@@ -65,6 +70,7 @@ func TestSpecificInstall(t *testing.T) {
 
 func TestLatestInstall(t *testing.T) {
 	updater := &goup{
+		ctx:             context.Background(),
 		architecture:    runtime.GOARCH,
 		operatingSystem: runtime.GOOS,
 	}
@@ -73,5 +79,35 @@ func TestLatestInstall(t *testing.T) {
 
 	if err := updater.run(); err != nil {
 		t.Fatalf("Failed to test latest installation: %v", err)
+	}
+}
+
+func TestContextTimeout(t *testing.T) {
+	var err error
+	done := make(chan struct{})
+	ticker := time.NewTicker(3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	updater := &goup{
+		ctx:             ctx,
+		architecture:    runtime.GOARCH,
+		operatingSystem: runtime.GOOS,
+	}
+
+	updater.testOSDefaults()
+
+	go func() {
+		err = updater.run()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Unexpected error during context timeout: %v", err)
+		}
+	case <-ticker.C:
+		t.Fatal("Context persisted after timeout")
 	}
 }
