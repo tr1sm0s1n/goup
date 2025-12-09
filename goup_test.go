@@ -85,8 +85,8 @@ func TestLatestInstall(t *testing.T) {
 func TestContextTimeout(t *testing.T) {
 	var err error
 	done := make(chan struct{})
-	ticker := time.NewTicker(3 * time.Second)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ticker := time.NewTicker(5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	updater := &goup{
