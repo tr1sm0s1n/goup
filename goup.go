@@ -4,17 +4,21 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -42,6 +46,7 @@ type Release struct {
 }
 
 type goup struct {
+	ctx             context.Context
 	currentVersion  string
 	installVersion  string
 	latestVersion   string
@@ -128,7 +133,6 @@ func (g *goup) run() error {
 	}
 
 	printSuccess(fmt.Sprintf("Go has been successfully updated to version %s", g.installVersion))
-	g.printPostInstallInstructions()
 
 	return nil
 }
@@ -136,7 +140,7 @@ func (g *goup) run() error {
 func (g *goup) getCurrentVersion() (string, error) {
 	var lastErr error
 	for _, goPath := range g.goPaths {
-		cmd := exec.Command(goPath, "version")
+		cmd := exec.CommandContext(g.ctx, goPath, "version")
 		output, err := cmd.Output()
 		if err != nil {
 			lastErr = err
@@ -159,7 +163,12 @@ func (g *goup) getCurrentVersion() (string, error) {
 }
 
 func (g *goup) getLatestVersion() (string, error) {
-	resp, err := http.Get(goDownloadAPI)
+	req, err := http.NewRequestWithContext(g.ctx, "GET", goDownloadAPI, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -259,7 +268,12 @@ func (g *goup) downloadAndInstall() error {
 }
 
 func (g *goup) downloadFile(url, filepath string) error {
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(g.ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -392,7 +406,7 @@ func (g *goup) addToProfile(profilePath, goBinPath string) error {
 func (g *goup) verifyInstallation() error {
 	goBinPath := filepath.Join(g.installDir, "go", "bin", "go")
 
-	cmd := exec.Command(goBinPath, "version")
+	cmd := exec.CommandContext(g.ctx, goBinPath, "version")
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("go command failed: %w", err)
@@ -577,7 +591,22 @@ func main() {
 		os.Exit(0)
 	}
 
+	printInfo("goup - Go Version Updater")
+	printInfo("-------------------------")
+
+	if !isRoot() {
+		printError("This program must be run as root (use sudo)")
+		os.Exit(1)
+	}
+
+	c := make(chan os.Signal, 1)
+	done := make(chan struct{})
+
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	updater := &goup{
+		ctx:             ctx,
 		architecture:    runtime.GOARCH,
 		operatingSystem: runtime.GOOS,
 		installVersion:  *specVersion,
@@ -587,21 +616,31 @@ func main() {
 	// Set OS-specific defaults
 	updater.setOSDefaults()
 
-	printInfo("goup - Go Version Updater")
-	printInfo("-------------------------")
+	go func() {
+		// Debug: Show current PATH and OS info
+		printInfo(fmt.Sprintf("Operating System: %s", updater.operatingSystem))
+		printInfo(fmt.Sprintf("Architecture: %s", updater.architecture))
+		printInfo(fmt.Sprintf("Install Directory: %s", updater.installDir))
 
-	if !isRoot() {
-		printError("This program must be run as root (use sudo)")
-		os.Exit(1)
-	}
+		if err := updater.run(); err != nil {
+			switch {
+			case errors.Is(err, context.Canceled):
+				printWarning("Context canceled, update process halted.")
+			default:
+				printError(fmt.Sprintf("Update failed: %v", err))
+				os.Exit(1)
+			}
+		}
 
-	// Debug: Show current PATH and OS info
-	printInfo(fmt.Sprintf("Operating System: %s", updater.operatingSystem))
-	printInfo(fmt.Sprintf("Architecture: %s", updater.architecture))
-	printInfo(fmt.Sprintf("Install Directory: %s", updater.installDir))
+		close(done)
+	}()
 
-	if err := updater.run(); err != nil {
-		printError(fmt.Sprintf("Update failed: %v", err))
-		os.Exit(1)
+	select {
+	case <-done:
+		updater.printPostInstallInstructions()
+	case <-c:
+		printWarning("Received SIGTERM, shutting down...")
+		cancel()
+		<-done
 	}
 }
